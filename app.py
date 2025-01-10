@@ -1,4 +1,14 @@
-# app.py
+"""
+TensorQuest Hackathon: Problem Statement 1 (SMS SPAM DETECTOR)
+Exposing the model built by Team Neural Nexus through Web API and an interface
+
+(c) Aritro 'sortira' Shome
+Disclaimer: the owner of this repository does not own nor claims credit for the model used
+"""
+
+
+
+
 from flask import Flask, render_template, request
 from tensorflow.keras.models import load_model
 import pickle, nltk, string
