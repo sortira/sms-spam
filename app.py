@@ -1,78 +1,56 @@
-"""
-TensorQuest Hackathon: Problem Statement 1 (SMS SPAM DETECTOR)
-Exposing the model built by Team Neural Nexus through Web API and an interface
-
-(c) Aritro 'sortira' Shome
-Disclaimer: the owner of this repository does not own nor claims credit for the model used
-"""
-
-
-
-
-from flask import Flask, render_template, request
+import streamlit as st
+import pickle
+import nltk
+import string
 from tensorflow.keras.models import load_model
-import pickle, nltk, string
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from nltk.corpus import stopwords
 from nltk.stem.porter import PorterStemmer
 
-app = Flask(__name__)
-
-members = ['Arkapravo Das', 'Subhranil Nandy', 'Harsh Raj Gupta', 'Sayan Roy', 'Aritro Shome']
-roles = ['developer', 'developer', 'developer', 'developer', 'developer']
+# Load the trained model and tokenizer
 model = load_model('model.h5')
+with open('tokenizer.pkl', 'rb') as file:
+    tokenizer = pickle.load(file)
+
 nltk.download('punkt_tab')
 nltk.download('stopwords')
+
 ps = PorterStemmer()
 
 def transform_text(text):
     text = text.lower()
     text = nltk.word_tokenize(text)
-    y = []
-    for i in text:
-        if i.isalnum():
-            y.append(i)
-    text = y[:]
-    y.clear()
-    for i in text:
-        if i not in stopwords.words('english') and i not in string.punctuation:
-            y.append(i)
-    text = y[:]
-    y.clear()
-    for i in text:
-        y.append(ps.stem(i))
+    y = [i for i in text if i.isalnum()]
+    y = [ps.stem(i) for i in y if i not in stopwords.words('english') and i not in string.punctuation]
     return " ".join(y)
-    
-with open('tokenizer.pkl', 'rb') as file:
-    tokenizer = pickle.load(file)
-    
+
 def check_spam(text):
     text = transform_text(text)
-    sms_sequence = tokenizer.texts_to_sequences(text)
-    sms_padded = pad_sequences(sms_sequence)
+    sms_sequence = tokenizer.texts_to_sequences([text])
+    sms_padded = pad_sequences(sms_sequence, maxlen=50)  # Adjust maxlen if necessary
     prediction = model.predict(sms_padded)
     prob = prediction[0][0]
-    return {"spam_probability": prob, "not_spam_probability": 1.0 - prob};
-    
-@app.route('/')
-def home():
-    return render_template('home.html')
+    return {"spam_probability": prob, "not_spam_probability": 1.0 - prob}
 
-@app.route('/about')
-def about():
-    return render_template('about.html')
+# Streamlit UI
+st.title("SMS Spam Detector")
+st.write("Enter an SMS message below to check if it's spam.")
 
-@app.route('/team')
-def team():
-    return render_template('team.html', roles=roles, members=members)
+sms_text = st.text_area("Enter SMS text:")
 
-@app.route('/predict', methods=['GET', 'POST'])
-def predict():
-    if request.method == 'POST':
-        sms_text = request.form['sms_text']
+if st.button("Check Spam"):
+    if sms_text:
         result = check_spam(sms_text)
-        return render_template('result.html', sms_text=sms_text, result=result)
-    return render_template('predict.html')
+        st.write(f"Spam Probability: {result['spam_probability']:.2f}")
+        st.write(f"Not Spam Probability: {result['not_spam_probability']:.2f}")
+    else:
+        st.warning("Please enter some text to analyze.")
 
-if __name__ == '__main__':
-    app.run(debug=True)
+st.sidebar.header("About")
+st.sidebar.write("This app uses a machine learning model to predict whether an SMS message is spam or not.")
+
+st.sidebar.header("Team Neural Nexus")
+members = ['Arkapravo Das', 'Subhranil Nandy', 'Harsh Raj Gupta', 'Sayan Roy', 'Aritro Shome']
+roles = ['Developer'] * len(members)
+for member, role in zip(members, roles):
+    st.sidebar.write(f"{member} - {role}")
